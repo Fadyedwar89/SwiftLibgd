@@ -1,0 +1,45 @@
+body {
+    overflow: hidden;
+}
+
+.bg-layer {
+    top: 100%;
+    background-color: #f9f6f6ca;
+    transition: 0.5s;
+}
+div.position-relative:hover div.bg-layer {
+top: 0;
+}
+
+.pointer {
+    cursor: pointer;
+}
+
+.loadScreen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: black;
+    color: white;
+    z-index: 9999999;
+}
+
+.nav {
+   
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 9999;
+}
+li.pointer{
+    top: 400px;
+}
+input{
+    margin-bottom: 25px;
+}

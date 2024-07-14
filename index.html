@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="img/logo.png" type="image/x-icon">
+  <link rel="stylesheet" href="css/all.min.css">
+  <link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/style-min.css">
+
+  <title>yummy</title>
+
+</head>
+
+<body class="bg-black">
+
+  <loadScren class="loadScreen">
+    <i class="fa-solid fa-spinner fa-spin-pulse fa-5x"></i>
+  </loadScren>
+
+  <nav class="nav ">
+    <div class=" close bg-black w-75 text-white p-4 d-flex flex-column justify-content-between">
+      <div>
+        <ul class="list-unstyled overflow-hidden">
+          <li class="py-2 position-relative pointer">Search</li>
+          <li class="py-2 position-relative pointer">Categories</li>
+          <li class="py-2 position-relative pointer">Area</li>
+          <li class="py-2 position-relative pointer">Ingredients</li>
+          <li class="py-2 position-relative pointer">Contact Us</li>
+        </ul>
+      </div>
+      <div>
+        <i class="fa-brands fa-facebook"></i>
+        <i class="fa-brands fa-twitter"></i>
+        <i class="fa-solid fa-globe"></i>
+        <p>Copyright Â© 2019 All Rights Reserved.</p>
+      </div>
+    </div>
+    <div class=" bg-white text-black d-flex flex-column vh-100 justify-content-between align-items-center p-2 py-4  ">
+
+      <img src="img/logo.png" width="50px" alt="">
+      <i class=" btnNav fa-solid fa-2x pointer "></i>
+
+      <div>
+        <i class="fa-solid fa-globe d-block pointer"></i>
+        <i class="fa-solid fa-share-nodes pointer "></i>
+      </div>
+
+    </div>
+  </nav>
+  
+  <div class="container w-75 d-none " id="search">
+    <div class="row py-4 ">
+        <div class="col-md-6 ">
+            <input onkeyup="homeApi(this.value)" class="form-control bg-transparent text-white" type="text" placeholder="Search By Name">
+        </div>
+        <div class="col-md-6">
+            <input onkeyup="letter(this.value)" maxlength="1" class="form-control bg-transparent text-white" type="text" placeholder="Search By First Letter">
+        </div>
+    </div></div>
+
+  <div class="container text-center main">
+    <div class="row mt-5 text-white mx-auto">
+     
+    </div>
+  </div>
+
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script src="js/jquery-3.7.1.js"></script>
+  <script src="js/index.js"></script>
+
+</body>
+
+</html>
