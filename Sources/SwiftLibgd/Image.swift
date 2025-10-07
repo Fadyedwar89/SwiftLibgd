@@ -106,24 +106,41 @@ public extension Image {
 // MARK: - Drawing Operations
 public extension Image {
     @MainActor
-    func renderText(_ text: String, from: Point, fontList: [String],
-                    color: Color, size: Double, angle: Angle = .zero)
-    -> (upperLeft: Point, upperRight: Point, lowerRight: Point, lowerLeft: Point) {
+    func renderText(
+        _ text: String,
+        from: Point,
+        fontList: [String],
+        color: Color,
+        size: Double,
+        angle: Angle = .zero
+    ) -> (upperLeft: Point, upperRight: Point, lowerRight: Point, lowerLeft: Point) {
         guard !text.isEmpty, !fontList.isEmpty,
               var textCChar = text.cString(using: .utf8),
-              var fonts = fontList.joined(separator: ";").cString(using: .utf8) else {
-            return (.zero, .zero, .zero, .zero)
-        }
+              var fonts = fontList.joined(separator: ";").cString(using: .utf8)
+        else { return (.zero, .zero, .zero, .zero) }
 
         let c = allocateColor(color)
         defer { gdImageColorDeallocate(internalImage, c) }
 
         var box: [Int32] = .init(repeating: 0, count: 8)
-        gdImageStringFT(internalImage, &box, c, &fonts, size, -angle.radians,
-                        Int32(from.x), Int32(from.y), &textCChar)
+        gdImageStringFT(
+            internalImage,
+            &box,
+            c,
+            &fonts,
+            size,
+            -angle.radians,
+            Int32(from.x),
+            Int32(from.y),
+            &textCChar
+        )
 
-        return (Point(x: box[6], y: box[7]), Point(x: box[4], y: box[5]),
-                Point(x: box[2], y: box[3]), Point(x: box[0], y: box[1]))
+        return (
+            Point(x: box[6], y: box[7]),
+            Point(x: box[4], y: box[5]),
+            Point(x: box[2], y: box[3]),
+            Point(x: box[0], y: box[1])
+        )
     }
 
     func fill(from: Point, color: Color) {
@@ -140,9 +157,16 @@ public extension Image {
 
     @MainActor
     func drawImage(_ image: Image, at topLeft: Point = .zero) {
-        gdImageCopy(internalImage, image.internalImage,
-                    Int32(topLeft.x), Int32(topLeft.y), 0, 0,
-                    Int32(size.width - topLeft.x), Int32(size.height - topLeft.y))
+        gdImageCopy(
+            internalImage,
+            image.internalImage,
+            Int32(topLeft.x),
+            Int32(topLeft.y),
+            0,
+            0,
+            Int32(size.width - topLeft.x),
+            Int32(size.height - topLeft.y)
+        )
     }
 
     func set(pixel: Point, to color: Color) {
@@ -153,10 +177,12 @@ public extension Image {
 
     func get(pixel: Point) -> Color {
         let c = gdImageGetTrueColorPixel(internalImage, Int32(pixel.x), Int32(pixel.y))
-        return Color(red: Double((c >> 16) & 0xFF) / 255,
-                     green: Double((c >> 8) & 0xFF) / 255,
-                     blue: Double(c & 0xFF) / 255,
-                     alpha: 1 - Double((c >> 24) & 0xFF) / 127)
+        return Color(
+            red: Double((c >> 16) & 0xFF) / 255,
+            green: Double((c >> 8) & 0xFF) / 255,
+            blue: Double(c & 0xFF) / 255,
+            alpha: 1 - Double((c >> 24) & 0xFF) / 127
+        )
     }
 
     func strokeEllipse(center: Point, size: Size, color: Color) {
