@@ -12,7 +12,8 @@ import gd
 public enum ImportableFormat {
     case bmp, gif, jpg, png, tiff, tga, wbmp, webp, avif, any
 
-    public func imagePtr(of data: Data) throws -> gdImagePtr {
+    /// Returns a managed GD image that will automatically be destroyed when deallocated
+    public func image(of data: Data) throws -> GDImage {
         if case .any = self {
             return try tryAllFormats(data: data)
         }
@@ -32,16 +33,16 @@ public enum ImportableFormat {
             case .any: gdImageCreateFromPngPtr // Never reached
         }
 
-        guard let image = creator(size, ptr) else {
+        guard let imagePtr = creator(size, ptr) else {
             throw Error.invalidFormat
         }
-        return image
+        return GDImage(imagePtr)
     }
 
-    private func tryAllFormats(data: Data) throws -> gdImagePtr {
+    private func tryAllFormats(data: Data) throws -> GDImage {
         let formats: [ImportableFormat] = [.jpg, .png, .gif, .webp, .tiff, .bmp, .wbmp]
         for format in formats {
-            if let image = try? format.imagePtr(of: data) {
+            if let image = try? format.image(of: data) {
                 return image
             }
         }
@@ -61,45 +62,49 @@ public enum ExportableFormat {
     case webp
     case avif
 
-    public func data(of imagePtr: gdImagePtr) throws -> Data {
+    public func data(of gdImage: GDImage) throws -> Data {
         var size: Int32 = 0
 
         let bytes: UnsafeMutableRawPointer? = switch self {
             case .bmp(let compress):
-                gdImageBmpPtr(imagePtr, &size, compress ? 1 : 0)
+                gdImageBmpPtr(gdImage.ptr, &size, compress ? 1 : 0)
             case .gif:
-                gdImageGifPtr(imagePtr, &size)
+                gdImageGifPtr(gdImage.ptr, &size)
             case .jpg(let quality):
-                gdImageJpegPtr(imagePtr, &size, quality)
+                gdImageJpegPtr(gdImage.ptr, &size, quality)
             case .png:
-                gdImagePngPtr(imagePtr, &size)
+                gdImagePngPtr(gdImage.ptr, &size)
             case .tiff:
-                gdImageTiffPtr(imagePtr, &size)
+                gdImageTiffPtr(gdImage.ptr, &size)
             case .wbmp(let index):
-                gdImageWBMPPtr(imagePtr, &size, index)
+                gdImageWBMPPtr(gdImage.ptr, &size, index)
             case .webp:
-                gdImageWebpPtr(imagePtr, &size)
+                gdImageWebpPtr(gdImage.ptr, &size)
             case .avif:
-                gdImageAvifPtr(imagePtr, &size)
+                gdImageAvifPtr(gdImage.ptr, &size)
         }
 
         guard let bytes = bytes else {
             throw Error.invalidFormat
         }
 
-        // Use custom deallocator for formats that need gdFree
-        if case .bmp = self {
-            return Data(bytesNoCopy: bytes, count: Int(size),
-                       deallocator: .custom({ ptr, _ in gdFree(ptr) }))
-        } else if case .jpg = self {
-            return Data(bytesNoCopy: bytes, count: Int(size),
-                       deallocator: .custom({ ptr, _ in gdFree(ptr) }))
-        } else if case .wbmp = self {
-            return Data(bytesNoCopy: bytes, count: Int(size),
-                       deallocator: .custom({ ptr, _ in gdFree(ptr) }))
-        }
+        return Data(bytesNoCopy: bytes, count: Int(size), deallocator: .custom { ptr, _ in
+            gdFree(ptr)
+        })
+    }
+}
 
-        return Data(bytes: bytes, count: Int(size))
+// MARK: - Memory-Safe GD Image Wrapper
+/// Wraps `gdImagePtr` and automatically destroys the image on deinit
+public final class GDImage {
+    public var ptr: gdImagePtr
+
+    public init(_ ptr: gdImagePtr) {
+        self.ptr = ptr
+    }
+
+    deinit {
+        gdImageDestroy(ptr)
     }
 }
 

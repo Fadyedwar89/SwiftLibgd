@@ -7,9 +7,9 @@ import Darwin
 import Foundation
 import gd
 
-public class Image {
-    // MARK: Private properties
-    private var internalImage: gdImagePtr
+public final class Image {
+    // MARK: - Private properties
+    private var internalImage: GDImage
 
     // MARK: - Public properties
     public enum FlipMode {
@@ -17,22 +17,25 @@ public class Image {
     }
 
     public var size: Size {
-        Size(width: internalImage.pointee.sx, height: internalImage.pointee.sy)
+        Size(width: internalImage.ptr.pointee.sx, height: internalImage.ptr.pointee.sy)
     }
 
     public var transparent: Bool = false {
         didSet {
-            gdImageSaveAlpha(internalImage, transparent ? 1 : 0)
-            gdImageAlphaBlending(internalImage, transparent ? 0 : 1)
+            gdImageSaveAlpha(internalImage.ptr, transparent ? 1 : 0)
+            gdImageAlphaBlending(internalImage.ptr, transparent ? 0 : 1)
         }
     }
 
     // MARK: - Init
     public init?(width: Int, height: Int) {
-        internalImage = gdImageCreateTrueColor(Int32(width), Int32(height))
+        guard let ptr = gdImageCreateTrueColor(Int32(width), Int32(height)) else {
+            return nil
+        }
+        self.internalImage = GDImage(ptr)
     }
 
-    private init(gdImage: gdImagePtr) {
+    private init(gdImage: GDImage) {
         self.internalImage = gdImage
     }
 
@@ -40,34 +43,44 @@ public class Image {
         guard let file = fopen(url.path, "rb") else { return nil }
         defer { fclose(file) }
 
-        let ext = url.lastPathComponent.lowercased()
-        let img: gdImagePtr? = ext.hasSuffix("jpg") || ext.hasSuffix("jpeg")
-        ? gdImageCreateFromJpeg(file)
-        : ext.hasSuffix("png") ? gdImageCreateFromPng(file) : nil
+        let ext = url.pathExtension.lowercased()
+        var loadedPtr: gdImagePtr?
 
-        guard let loadedImage = img else { return nil }
-        self.init(gdImage: loadedImage)
+        if ext == "jpg" || ext == "jpeg" {
+            loadedPtr = gdImageCreateFromJpeg(file)
+        } else if ext == "png" {
+            loadedPtr = gdImageCreateFromPng(file)
+        } else {
+            loadedPtr = nil
+        }
+
+        guard let ptr = loadedPtr else { return nil }
+        self.init(gdImage: GDImage(ptr))
     }
 
     public convenience init(data: Data, as format: ImportableFormat = .any) throws {
-        try self.init(gdImage: format.imagePtr(of: data))
-    }
-
-    // MARK: - Deinit
-    deinit {
-        gdImageDestroy(internalImage)
+        let gdImage = try format.image(of: data) // returns GDImage
+        self.init(gdImage: gdImage)
     }
 }
 
 // MARK: - Transform Operations
 public extension Image {
     func cloned() -> Image? {
-        gdImageClone(internalImage).map { Image(gdImage: $0) }
+        guard let clonedPtr = gdImageClone(internalImage.ptr) else { return nil }
+        let clonedGDImage = GDImage(clonedPtr)
+        return Image(gdImage: clonedGDImage)
     }
 
     func resizedTo(width: Int, height: Int, smooth: Bool = true) -> Image? {
         setInterpolation(smooth: smooth, from: size, to: Size(width: width, height: height))
-        return gdImageScale(internalImage, UInt32(width), UInt32(height)).map { Image(gdImage: $0) }
+
+        guard let scaledPtr = gdImageScale(internalImage.ptr, UInt32(width), UInt32(height)) else {
+            return nil
+        }
+
+        let scaledGDImage = GDImage(scaledPtr)
+        return Image(gdImage: scaledGDImage)
     }
 
     func resizedTo(width: Int, smooth: Bool = true) -> Image? {
@@ -83,23 +96,35 @@ public extension Image {
     }
 
     func cropped(to rect: Rectangle) -> Image? {
-        var r = gdRect(x: Int32(rect.point.x), y: Int32(rect.point.y),
-                       width: Int32(rect.size.width), height: Int32(rect.size.height))
-        return gdImageCrop(internalImage, &r).map { Image(gdImage: $0) }
+        var r = gdRect(
+            x: Int32(rect.point.x),
+            y: Int32(rect.point.y),
+            width: Int32(rect.size.width),
+            height: Int32(rect.size.height)
+        )
+
+        guard let croppedPtr = gdImageCrop(internalImage.ptr, &r) else { return nil }
+
+        let croppedGDImage = GDImage(croppedPtr)
+        return Image(gdImage: croppedGDImage)
     }
 
     func rotated(_ angle: Angle) -> Image? {
-        gdImageRotateInterpolated(internalImage, Float(angle.degrees), 0).map { Image(gdImage: $0) }
+        guard let rotatedPtr = gdImageRotateInterpolated(internalImage.ptr, Float(angle.degrees), 0) else { return nil }
+        let rotatedGDImage = GDImage(rotatedPtr)
+        return Image(gdImage: rotatedGDImage)
     }
 
     func flipped(_ mode: FlipMode) -> Image? {
-        guard let copy = gdImageClone(internalImage) else { return nil }
-        applyFlip(to: copy, mode: mode)
-        return Image(gdImage: copy)
+        guard let copyPtr = gdImageClone(internalImage.ptr) else { return nil }
+        applyFlip(to: copyPtr, mode: mode)
+
+        let copyGDImage = GDImage(copyPtr)
+        return Image(gdImage: copyGDImage)
     }
 
     func flip(_ mode: FlipMode) {
-        applyFlip(to: internalImage, mode: mode)
+        applyFlip(to: internalImage.ptr, mode: mode)
     }
 }
 
@@ -120,11 +145,11 @@ public extension Image {
         else { return (.zero, .zero, .zero, .zero) }
 
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
 
         var box: [Int32] = .init(repeating: 0, count: 8)
         gdImageStringFT(
-            internalImage,
+            internalImage.ptr,
             &box,
             c,
             &fonts,
@@ -145,21 +170,21 @@ public extension Image {
 
     func fill(from: Point, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
-        gdImageFill(internalImage, Int32(from.x), Int32(from.y), c)
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
+        gdImageFill(internalImage.ptr, Int32(from.x), Int32(from.y), c)
     }
 
     func drawLine(from: Point, to: Point, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
-        gdImageLine(internalImage, Int32(from.x), Int32(from.y), Int32(to.x), Int32(to.y), c)
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
+        gdImageLine(internalImage.ptr, Int32(from.x), Int32(from.y), Int32(to.x), Int32(to.y), c)
     }
 
     @MainActor
     func drawImage(_ image: Image, at topLeft: Point = .zero) {
         gdImageCopy(
-            internalImage,
-            image.internalImage,
+            internalImage.ptr,
+            image.internalImage.ptr,
             Int32(topLeft.x),
             Int32(topLeft.y),
             0,
@@ -171,12 +196,12 @@ public extension Image {
 
     func set(pixel: Point, to color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
-        gdImageSetPixel(internalImage, Int32(pixel.x), Int32(pixel.y), c)
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
+        gdImageSetPixel(internalImage.ptr, Int32(pixel.x), Int32(pixel.y), c)
     }
 
     func get(pixel: Point) -> Color {
-        let c = gdImageGetTrueColorPixel(internalImage, Int32(pixel.x), Int32(pixel.y))
+        let c = gdImageGetTrueColorPixel(internalImage.ptr, Int32(pixel.x), Int32(pixel.y))
         return Color(
             red: Double((c >> 16) & 0xFF) / 255,
             green: Double((c >> 8) & 0xFF) / 255,
@@ -187,9 +212,9 @@ public extension Image {
 
     func strokeEllipse(center: Point, size: Size, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
         gdImageEllipse(
-            internalImage,
+            internalImage.ptr,
             Int32(center.x),
             Int32(center.y),
             Int32(size.width),
@@ -200,9 +225,9 @@ public extension Image {
 
     func fillEllipse(center: Point, size: Size, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
         gdImageFilledEllipse(
-            internalImage,
+            internalImage.ptr,
             Int32(center.x),
             Int32(center.y),
             Int32(size.width),
@@ -213,9 +238,9 @@ public extension Image {
 
     func strokeRectangle(topLeft: Point, bottomRight: Point, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
         gdImageRectangle(
-            internalImage,
+            internalImage.ptr,
             Int32(topLeft.x),
             Int32(topLeft.y),
             Int32(bottomRight.x),
@@ -226,9 +251,9 @@ public extension Image {
 
     func fillRectangle(topLeft: Point, bottomRight: Point, color: Color) {
         let c = allocateColor(color)
-        defer { gdImageColorDeallocate(internalImage, c) }
+        defer { gdImageColorDeallocate(internalImage.ptr, c) }
         gdImageFilledRectangle(
-            internalImage,
+            internalImage.ptr,
             Int32(topLeft.x),
             Int32(topLeft.y),
             Int32(bottomRight.x),
@@ -241,30 +266,30 @@ public extension Image {
 // MARK: - Effects
 public extension Image {
     func pixelate(blockSize: Int) {
-        gdImagePixelate(internalImage, Int32(blockSize), GD_PIXELATE_AVERAGE.rawValue)
+        gdImagePixelate(internalImage.ptr, Int32(blockSize), GD_PIXELATE_AVERAGE.rawValue)
     }
 
     func blur(radius: Int) {
-        if let result = gdImageCopyGaussianBlurred(internalImage, Int32(radius), -1) {
-            gdImageDestroy(internalImage)
-            internalImage = result
+        if let result = gdImageCopyGaussianBlurred(internalImage.ptr, Int32(radius), -1) {
+            gdImageDestroy(internalImage.ptr)
+            internalImage.ptr = result
         }
     }
 
     func colorize(using color: Color) {
         let c = colorComponents(color)
-        gdImageColor(internalImage, c.0, c.1, c.2, c.3)
+        gdImageColor(internalImage.ptr, c.0, c.1, c.2, c.3)
     }
 
     func desaturate() {
-        gdImageGrayScale(internalImage)
+        gdImageGrayScale(internalImage.ptr)
     }
 
     func reduceColors(max numberOfColors: Int, dither: Bool = true) throws {
         guard numberOfColors > 1 else {
             throw Error.invalidMaxColors(reason: "Indexed images must have at least 2 colors")
         }
-        gdImageTrueColorToPalette(internalImage, dither ? 1 : 0, Int32(numberOfColors))
+        gdImageTrueColorToPalette(internalImage.ptr, dither ? 1 : 0, Int32(numberOfColors))
     }
 }
 
@@ -279,10 +304,10 @@ public extension Image {
         defer { fclose(file) }
 
         if ext == "png" {
-            gdImageSaveAlpha(internalImage, 1)
-            gdImagePng(internalImage, file)
+            gdImageSaveAlpha(internalImage.ptr, 1)
+            gdImagePng(internalImage.ptr, file)
         } else {
-            gdImageJpeg(internalImage, file, Int32(quality))
+            gdImageJpeg(internalImage.ptr, file, Int32(quality))
         }
 
         return FileManager.default.fileExists(atPath: url.path)
@@ -297,7 +322,7 @@ public extension Image {
 private extension Image {
     func allocateColor(_ color: Color) -> Int32 {
         let c = colorComponents(color)
-        return gdImageColorAllocateAlpha(internalImage, c.0, c.1, c.2, c.3)
+        return gdImageColorAllocateAlpha(internalImage.ptr, c.0, c.1, c.2, c.3)
     }
 
     func colorComponents(_ color: Color) -> (Int32, Int32, Int32, Int32) {
@@ -307,11 +332,11 @@ private extension Image {
 
     func setInterpolation(smooth: Bool, from: Size, to: Size) {
         guard smooth else {
-            gdImageSetInterpolationMethod(internalImage, GD_NEAREST_NEIGHBOUR)
+            gdImageSetInterpolationMethod(internalImage.ptr, GD_NEAREST_NEIGHBOUR)
             return
         }
         let method = from > to ? GD_SINC : from < to ? GD_MITCHELL : GD_NEAREST_NEIGHBOUR
-        gdImageSetInterpolationMethod(internalImage, method)
+        gdImageSetInterpolationMethod(internalImage.ptr, method)
     }
 
     func applyFlip(to image: gdImagePtr, mode: FlipMode) {
