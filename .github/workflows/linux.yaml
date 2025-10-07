@@ -1,0 +1,14 @@
+name: Linux Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build -v
+      - name: Test
+        run: swift test -v
