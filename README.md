@@ -29,14 +29,3 @@ apt-get install libgd-dev
 
 3. Include SwiftLibgd in your target dependencies.
 SwiftLibgd has a single Swift dependency: Cgd, which wraps the underlying GD library.
-
-## Classes
-
-SwiftLibgd provides five classes for basic image operations:
-- Image – responsible for loading, saving, and manipulating image data
-- Point – stores x and y coordinates as integers
-- Size – stores width and height as integers
-- Rectangle – combines Point and Size into one value
-- Color – provides red, green, blue, and alpha components as Doubles from 0 to 1, and includes some built-in colors to get you started
-
-These are implemented as classes rather than structs because only classes have deinitializers, which are required to release GD’s memory when an image is destroyed.
