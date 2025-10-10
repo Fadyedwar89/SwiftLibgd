@@ -1,4 +1,4 @@
-SwiftLibgd is a Swift wrapper for libgd, providing server-side image manipulation where Core Graphics isn’t available. Build for Swift 6.2+.
+SwiftLibgd is a Swift wrapper for libgd, providing server-side image manipulation where Core Graphics isn’t available. Built for Swift 6.2+.
 
 It allows you to:
 - Load and save PNG/JPEG images.
