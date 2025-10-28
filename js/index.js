@@ -1,7 +1,6 @@
 /// <reference types="../@types/jquery" />
 
 const row = document.querySelector(".row.mt-5");
-const cont = document.querySelector(".main");
 
 $(function () {
   $(".loadScreen").fadeOut(1500, function () {
@@ -268,7 +267,7 @@ $("li")
   });
 
 function Contact() {
-  let containr = `<div class="row mt-5 text-white w-75 mx-auto">
+  let containr = `<div class="row mt-5 text-white w-75  mx-auto">
             <div class="col-md-6">
                 <input id="nameInput" onkeyup="inputsValidation()" type="text" class="form-control" placeholder="Enter Your Name">
                 <div id="nameAlert" class="alert alert-danger w-100 mt-2 d-none">
@@ -305,11 +304,13 @@ function Contact() {
                     Enter valid repassword 
                 </div>
             </div>
+             <div class="text-center"><button id="submitBtn" disabled="" class="btn btn-outline-danger  w-25 px-2 mt-3">Submit</button></div>
+
         </div>
-        <button id="submitBtn" disabled="" class="btn btn-outline-danger px-2 mt-3">Submit</button>`;
+       `;
 
   row.classList.remove("d-none");
-  cont.innerHTML = containr;
+  row.innerHTML = containr;
 
   let submitBtn = document.getElementById("submitBtn");
   submitBtn = document.getElementById("submitBtn");
